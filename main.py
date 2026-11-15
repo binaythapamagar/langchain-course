@@ -1,3 +1,4 @@
+from operator import itemgetter
 import os
 
 from dotenv import load_dotenv
@@ -6,6 +7,9 @@ from langchain_core.messages import HumanMessage
 from langchain_google_genai import ChatGoogleGenerativeAI
 from langchain_openai import ChatOpenAI, OpenAIEmbeddings
 from langchain_pinecone import PineconeVectorStore
+from langchain_core.output_parsers import StrOutputParser
+from langchain_core.prompts import ChatPromptTemplate
+from langchain_core.runnables import RunnablePassthrough
 
 from ingestion import LlamaEmbeddings
 
@@ -36,6 +40,33 @@ Question: {question}
 Provide a detailed answer:"""
 )
 
+# ============================================================================
+# IMPLEMENTATION 2: With LCEL (LangChain Expression Language) - BETTER APPROACH
+# ============================================================================
+def create_retrieval_chain_with_lcel():
+    """
+    Create a retrieval chain using LCEL (LangChain Expression Language).
+    Returns a chain that can be invoked with {"question": "..."}
+
+    Advantages over non-LCEL approach:
+    - Declarative and composable: Easy to chain operations with pipe operator (|)
+    - Built-in streaming: chain.stream() works out of the box
+    - Built-in async: chain.ainvoke() and chain.astream() available
+    - Batch processing: chain.batch() for multiple inputs
+    - Type safety: Better integration with LangChain's type system
+    - Less code: More concise and readable
+    - Reusable: Chain can be saved, shared, and composed with other chains
+    - Better debugging: LangChain provides better observability tools
+    """
+    retrieval_chain = (
+        RunnablePassthrough.assign(
+            context=itemgetter("question") | retriever | format_docs
+        )
+        | prompt_template
+        | llm
+        | StrOutputParser()
+    )
+    return retrieval_chain
 
 def format_docs(docs):
     """Format retrieved documents into a single string."""
@@ -95,3 +126,22 @@ print("=" * 70)
 result_without_lcel = retrieval_chain_without_lcel(query)
 print("\nAnswer:")
 print(result_without_lcel)
+
+# ========================================================================
+# Option 2: Use implementation WITH LCEL (Better Approach)
+# ========================================================================
+print("\n" + "=" * 70)
+print("IMPLEMENTATION 2: With LCEL - Better Approach")
+print("=" * 70)
+print("Why LCEL is better:")
+print("- More concise and declarative")
+print("- Built-in streaming: chain.stream()")
+print("- Built-in async: chain.ainvoke()")
+print("- Easy to compose with other chains")
+print("- Better for production use")
+print("=" * 70)
+
+chain_with_lcel = create_retrieval_chain_with_lcel()
+result_with_lcel = chain_with_lcel.invoke({"question": query})
+print("\nAnswer:")
+print(result_with_lcel)
